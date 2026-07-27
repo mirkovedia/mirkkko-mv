@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Builds
+dist/
+build/
+coverage/
+
+# Entorno (nunca commitear secretos)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Prisma (bases locales)
+prisma/*.db
+prisma/*.db-journal
+
+# Editores / OS
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code (settings locales)
+.claude/settings.local.json
