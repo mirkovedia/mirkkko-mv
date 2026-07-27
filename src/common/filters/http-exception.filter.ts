@@ -1,4 +1,10 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Response } from 'express';
 
 @Catch()
@@ -6,7 +12,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const res = host.switchToHttp().getResponse<Response>();
     const isHttp = exception instanceof HttpException;
-    const status = isHttp ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const status = isHttp
+      ? exception.getStatus()
+      : HttpStatus.INTERNAL_SERVER_ERROR;
     const payload = isHttp ? exception.getResponse() : null;
 
     // Normaliza a { error, code, details? }
@@ -23,6 +31,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
           ? exception.constructor.name.replace('Exception', '').toUpperCase()
           : 'INTERNAL_ERROR';
 
-    res.status(status).json({ error, code });
+    // Extrae details del payload cuando está presente (ej: errores de ValidationPipe)
+    const details =
+      typeof payload === 'object' && payload !== null && 'details' in payload
+        ? (payload as Record<string, unknown>).details
+        : undefined;
+
+    res
+      .status(status)
+      .json(details !== undefined ? { error, code, details } : { error, code });
   }
 }
