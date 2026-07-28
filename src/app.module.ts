@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from './config/config.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
@@ -11,6 +12,7 @@ import { HealthController } from './health.controller';
 @Module({
   imports: [
     ConfigModule,
+    ScheduleModule.forRoot(),
     PrismaModule,
     CryptoModule,
     AttestationModule,
