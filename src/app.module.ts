@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { AttestationModule } from './attestation/attestation.module';
 import { BlacklistModule } from './blacklist/blacklist.module';
+import { DevicesModule } from './devices/devices.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -13,6 +14,7 @@ import { HealthController } from './health.controller';
     CryptoModule,
     AttestationModule,
     BlacklistModule,
+    DevicesModule,
   ],
   controllers: [HealthController],
 })
