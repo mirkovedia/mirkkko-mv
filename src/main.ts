@@ -9,7 +9,9 @@ import type { Env } from './config/env.schema';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService<Env, true>);
-  app.use(json({ limit: config.get('SNAPSHOT_MAX_BODY_BYTES', { infer: true }) }));
+  app.use(
+    json({ limit: config.get('SNAPSHOT_MAX_BODY_BYTES', { infer: true }) }),
+  );
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
   await app.listen(config.get('PORT', { infer: true }));

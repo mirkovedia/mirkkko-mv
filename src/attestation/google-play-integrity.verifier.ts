@@ -26,7 +26,8 @@ export class GooglePlayIntegrityVerifier implements AttestationVerifier {
     const labels = token.deviceIntegrity?.deviceRecognitionVerdict ?? [];
     let verdict: IntegrityVerdict = 'FAILED';
     if (labels.includes('MEETS_STRONG_INTEGRITY')) verdict = 'MEETS_STRONG';
-    else if (labels.includes('MEETS_DEVICE_INTEGRITY')) verdict = 'MEETS_DEVICE';
+    else if (labels.includes('MEETS_DEVICE_INTEGRITY'))
+      verdict = 'MEETS_DEVICE';
     else if (labels.includes('MEETS_BASIC_INTEGRITY')) verdict = 'MEETS_BASIC';
     // labels vacío → FAILED (device no alcanzó integridad).
     return { verdict, raw: decoded, evaluatedAt: now };
@@ -43,9 +44,11 @@ export class GooglePlayIntegrityVerifier implements AttestationVerifier {
   }
 
   // Placeholder de red — implementación real requiere GOOGLE_APPLICATION_CREDENTIALS.
-  private async decodeWithGoogle(_token: string): Promise<unknown> {
-    throw new Error(
-      'GooglePlayIntegrityVerifier.decodeWithGoogle no configurado (falta service account)',
+  private decodeWithGoogle(token: string): Promise<unknown> {
+    return Promise.reject(
+      new Error(
+        `GooglePlayIntegrityVerifier.decodeWithGoogle no configurado (falta service account); token de ${token.length} bytes sin procesar`,
+      ),
     );
   }
 }

@@ -6,13 +6,21 @@ const bl = new Set<string>(['com.cheat.aim']);
 
 describe('evaluateSignals', () => {
   it('root → ROOT/HIGH', () => {
-    const flags = evaluateSignals({ root: { detected: true } }, 'MEETS_STRONG', bl);
+    const flags = evaluateSignals(
+      { root: { detected: true } },
+      'MEETS_STRONG',
+      bl,
+    );
     expect(flags).toContainEqual(
       expect.objectContaining({ type: 'ROOT', severity: 'HIGH' }),
     );
   });
   it('frida → HOOKING_FRAMEWORK/HIGH', () => {
-    const flags = evaluateSignals({ hooking: { frida: true } }, 'MEETS_STRONG', bl);
+    const flags = evaluateSignals(
+      { hooking: { frida: true } },
+      'MEETS_STRONG',
+      bl,
+    );
     expect(flags.some((f) => f.type === 'HOOKING_FRAMEWORK')).toBe(true);
   });
   it('paquete en blacklist → BLACKLIST_PACKAGE con packageName', () => {
@@ -31,7 +39,8 @@ describe('evaluateSignals', () => {
   });
   it('emulador → EMULATOR/MEDIUM', () => {
     expect(
-      evaluateSignals({ emulator: { detected: true } }, 'MEETS_STRONG', bl)[0].severity,
+      evaluateSignals({ emulator: { detected: true } }, 'MEETS_STRONG', bl)[0]
+        .severity,
     ).toBe('MEDIUM');
   });
   it('integridad DEGRADED → INTEGRITY_DEGRADED/LOW', () => {

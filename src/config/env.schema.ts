@@ -1,10 +1,14 @@
 import { z } from 'zod';
 
 export const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
   PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string().url(),
-  ADMIN_API_KEY: z.string().min(32, 'ADMIN_API_KEY debe tener al menos 32 caracteres'),
+  ADMIN_API_KEY: z
+    .string()
+    .min(32, 'ADMIN_API_KEY debe tener al menos 32 caracteres'),
   ATTESTATION_PROVIDER: z.enum(['stub', 'google']).default('stub'),
   ATTESTATION_STUB_VERDICT: z
     .enum(['MEETS_STRONG', 'MEETS_DEVICE', 'MEETS_BASIC', 'DEGRADED', 'FAILED'])

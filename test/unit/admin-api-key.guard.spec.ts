@@ -5,7 +5,7 @@ import { AdminApiKeyGuard } from '../../src/common/guards/admin-api-key.guard';
 const ctx = (apiKey?: string) =>
   ({
     switchToHttp: () => ({
-      getRequest: () => ({ header: (_: string) => apiKey }),
+      getRequest: () => ({ header: () => apiKey }),
     }),
   }) as unknown as ExecutionContext;
 const cfg = { get: () => 'k'.repeat(32) } as unknown as ConfigService;

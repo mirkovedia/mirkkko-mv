@@ -4,7 +4,10 @@ import type { DetectedFlag } from '../../src/verdict/types';
 const snap = (...flags: DetectedFlag[]) => ({ flags });
 const high: DetectedFlag = { type: 'ROOT', severity: 'HIGH' };
 const med: DetectedFlag = { type: 'EMULATOR', severity: 'MEDIUM' };
-const sigInvalid: DetectedFlag = { type: 'SIGNATURE_INVALID', severity: 'HIGH' };
+const sigInvalid: DetectedFlag = {
+  type: 'SIGNATURE_INVALID',
+  severity: 'HIGH',
+};
 
 describe('computeVerdict', () => {
   it('status ABORTED → INVALID', () => {

@@ -38,7 +38,10 @@ export const evaluateSignals = (
     flags.push({ type: 'ACCESSIBILITY', severity: 'MEDIUM' });
   }
 
-  if (integrityVerdict === 'MEETS_BASIC' || integrityVerdict === 'MEETS_DEVICE') {
+  if (
+    integrityVerdict === 'MEETS_BASIC' ||
+    integrityVerdict === 'MEETS_DEVICE'
+  ) {
     flags.push({ type: 'INTEGRITY_BASIC', severity: 'LOW' });
   }
   if (integrityVerdict === 'DEGRADED')

@@ -12,7 +12,11 @@ import type { Env } from '../config/env.schema';
     GooglePlayIntegrityVerifier,
     {
       provide: ATTESTATION_VERIFIER,
-      inject: [ConfigService, StubAttestationVerifier, GooglePlayIntegrityVerifier],
+      inject: [
+        ConfigService,
+        StubAttestationVerifier,
+        GooglePlayIntegrityVerifier,
+      ],
       useFactory: (
         config: ConfigService<Env, true>,
         stub: StubAttestationVerifier,
