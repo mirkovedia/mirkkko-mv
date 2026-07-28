@@ -1,10 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, createPublicKey, verify as cryptoVerify } from 'node:crypto';
+import {
+  createHash,
+  createPublicKey,
+  verify as cryptoVerify,
+} from 'node:crypto';
 
 @Injectable()
 export class SignatureService {
   // Verifica ECDSA P-256 / SHA-256 sobre los bytes exactos del payload.
-  verify(publicKeySpkiB64: string, payload: Buffer, signatureB64: string): boolean {
+  verify(
+    publicKeySpkiB64: string,
+    payload: Buffer,
+    signatureB64: string,
+  ): boolean {
     try {
       const keyObject = createPublicKey({
         key: Buffer.from(publicKeySpkiB64, 'base64'),
@@ -24,7 +32,14 @@ export class SignatureService {
   }
 
   // Huella de la clave pública para idempotencia de enrolamiento.
+  // Valida que sea un SPKI legítimo antes de hashear; lanza si es inválido.
   fingerprint(publicKeySpkiB64: string): string {
-    return createHash('sha256').update(Buffer.from(publicKeySpkiB64, 'base64')).digest('hex');
+    const keyObject = createPublicKey({
+      key: Buffer.from(publicKeySpkiB64, 'base64'),
+      format: 'der',
+      type: 'spki',
+    });
+    const spkiBytes = keyObject.export({ format: 'der', type: 'spki' });
+    return createHash('sha256').update(spkiBytes).digest('hex');
   }
 }
