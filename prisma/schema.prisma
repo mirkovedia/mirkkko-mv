@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  ANDROID
+  IOS
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETE
+  INCOMPLETE
+  ABORTED
+}
+
+enum Verdict {
+  CLEAN
+  SUSPICIOUS
+  FLAGGED
+  INVALID
+}
+
+enum IntegrityVerdict {
+  MEETS_STRONG
+  MEETS_DEVICE
+  MEETS_BASIC
+  DEGRADED
+  FAILED
+  UNKNOWN
+}
+
+enum AttestationType {
+  PLAY_INTEGRITY
+  APP_ATTEST
+  NONE
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FlagType {
+  ROOT
+  HOOKING_FRAMEWORK
+  BLACKLIST_PACKAGE
+  APK_SIGNATURE_MISMATCH
+  INTEGRITY_FAILED
+  EMULATOR
+  OVERLAY
+  ACCESSIBILITY
+  INTEGRITY_BASIC
+  INTEGRITY_DEGRADED
+  SNAPSHOT_GAP
+  SIGNATURE_INVALID
+  NONCE_REUSE
+}
+
+model Device {
+  id              String          @id @default(cuid())
+  publicKey       String // SPKI DER en base64
+  publicKeyFp     String          @unique // sha256 de la clave → idempotencia de enrolamiento
+  platform        Platform
+  keyAlgo         String          @default("ES256")
+  attestationType AttestationType @default(NONE)
+  attestationData Json? // cadena de Key Attestation si el cliente la envía (verificación dura = mejora futura)
+  label           String?
+  revoked         Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  lastSeenAt      DateTime        @default(now())
+  sessions        Session[]
+
+  @@index([platform])
+}
+
+model Session {
+  id                  String        @id @default(cuid())
+  deviceId            String
+  device              Device        @relation(fields: [deviceId], references: [id])
+  status              SessionStatus @default(ACTIVE)
+  verdict             Verdict?
+  currentNonce        String // próximo nonce esperado
+  expectedIntervalSec Int           @default(45)
+  jitterSec           Int           @default(15)
+  blacklistVersion    Int
+  startedAt           DateTime      @default(now())
+  endedAt             DateTime?
+  lastSeenAt          DateTime      @default(now())
+  snapshots           Snapshot[]
+  flags               Flag[]
+
+  @@index([status, lastSeenAt]) // consulta del reaper
+  @@index([deviceId])
+}
+
+model Snapshot {
+  id               String           @id @default(cuid())
+  sessionId        String
+  session          Session          @relation(fields: [sessionId], references: [id])
+  seq              Int
+  clientTimestamp  DateTime
+  receivedAt       DateTime         @default(now())
+  signals          Json
+  signedPayload    Bytes // bytes exactos firmados → evidencia inmutable
+  signatureValid   Boolean
+  nonceUsed        String
+  integrityVerdict IntegrityVerdict @default(UNKNOWN)
+  flags            Flag[]
+
+  @@unique([sessionId, seq])
+  @@unique([sessionId, nonceUsed]) // anti-replay a nivel DB
+}
+
+model Flag {
+  id         String    @id @default(cuid())
+  sessionId  String
+  session    Session   @relation(fields: [sessionId], references: [id])
+  snapshotId String?
+  snapshot   Snapshot? @relation(fields: [snapshotId], references: [id])
+  type       FlagType
+  severity   Severity
+  details    Json?
+  createdAt  DateTime  @default(now())
+
+  @@index([sessionId])
+}
+
+model BlacklistEntry {
+  id          String   @id @default(cuid())
+  packageName String   @unique
+  label       String
+  severity    Severity @default(HIGH)
+  active      Boolean  @default(true)
+  addedAt     DateTime @default(now())
+}
+
+model BlacklistState {
+  id      Int @id @default(1) // fila singleton
+  version Int @default(1) // se incrementa en cada cambio de blacklist
+}
