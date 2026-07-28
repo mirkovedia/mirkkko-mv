@@ -5,6 +5,7 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { AttestationModule } from './attestation/attestation.module';
 import { BlacklistModule } from './blacklist/blacklist.module';
 import { DevicesModule } from './devices/devices.module';
+import { SessionsModule } from './sessions/sessions.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -15,6 +16,7 @@ import { HealthController } from './health.controller';
     AttestationModule,
     BlacklistModule,
     DevicesModule,
+    SessionsModule,
   ],
   controllers: [HealthController],
 })
