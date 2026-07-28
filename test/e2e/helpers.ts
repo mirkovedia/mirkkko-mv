@@ -1,7 +1,8 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import type { Server } from 'node:http';
+import type { Response } from 'supertest';
 import {
   createHash,
   generateKeyPairSync,
@@ -17,12 +18,22 @@ export interface TestApp {
   adminKey: string;
 }
 
-// Levanta la app con el ValidationPipe global y expone la admin key REAL que
+// Sesión enrolada y arrancada: lo que todo test de snapshot/end necesita a mano.
+export interface EnrolledSession {
+  privateKey: KeyObject;
+  deviceId: string;
+  sessionId: string;
+}
+
+// Levanta la app permitiendo configurar el TestingModuleBuilder (p.ej. override de
+// un provider). Aplica el ValidationPipe global y expone la admin key REAL que
 // validó ConfigService (así los tests no dependen de un valor hardcodeado de .env).
-export const createTestApp = async (): Promise<TestApp> => {
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
+export const createTestAppWith = async (
+  configure?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+): Promise<TestApp> => {
+  let builder = Test.createTestingModule({ imports: [AppModule] });
+  if (configure) builder = configure(builder);
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init();
@@ -32,6 +43,9 @@ export const createTestApp = async (): Promise<TestApp> => {
     .get('ADMIN_API_KEY', { infer: true }) as string;
   return { app, server, adminKey };
 };
+
+// Caso común: app sin overrides.
+export const createTestApp = (): Promise<TestApp> => createTestAppWith();
 
 // Firma ES256 (ECDSA P-256 / SHA-256, DER) sobre los bytes exactos.
 export const signBytes = (privateKey: KeyObject, bytes: Buffer): string =>
@@ -100,4 +114,34 @@ export const buildSnapshot = (
     signatureB64: signBytes(privateKey, Buffer.from(payloadB64, 'base64')),
     integrityToken: 'tok',
   };
+};
+
+// Envía un snapshot firmado y devuelve el response crudo (status + body).
+export const sendSnapshot = (
+  server: Server,
+  s: EnrolledSession,
+  seq: number,
+  nonce: string,
+  signals: object,
+): Promise<Response> =>
+  request(server)
+    .post(`/sessions/${s.sessionId}/snapshot`)
+    .send(
+      buildSnapshot(s.privateKey, s.deviceId, s.sessionId, seq, nonce, signals),
+    );
+
+// Cierra la sesión firmando (sessionId + clientTimestamp) y devuelve el response.
+export const endSession = (
+  server: Server,
+  privateKey: KeyObject,
+  sessionId: string,
+): Promise<Response> => {
+  const clientTimestamp = new Date().toISOString();
+  const signatureB64 = signBytes(
+    privateKey,
+    Buffer.from(`${sessionId}${clientTimestamp}`),
+  );
+  return request(server)
+    .post(`/sessions/${sessionId}/end`)
+    .send({ clientTimestamp, signatureB64 });
 };
