@@ -19,9 +19,22 @@ import {
   type AttestationVerifier,
 } from '../attestation/attestation-verifier.interface';
 import { evaluateSignals } from '../verdict/signal-evaluator';
-import type { IntegrityVerdict, SignalSet } from '../verdict/types';
+import { analyzeGaps } from '../verdict/gap-analyzer';
+import { computeVerdict } from '../verdict/verdict.service';
+import { DEFAULT_POLICY } from '../verdict/policy';
+import type {
+  DetectedFlag,
+  FlagType,
+  IntegrityVerdict,
+  Severity,
+  SignalSet,
+} from '../verdict/types';
 import type { Env } from '../config/env.schema';
-import type { StartSessionDto, SnapshotDto } from './dto/session.dto';
+import type {
+  StartSessionDto,
+  SnapshotDto,
+  EndSessionDto,
+} from './dto/session.dto';
 
 // Forma del payload firmado que envía el cliente (dentro de payloadB64).
 interface SnapshotPayload {
@@ -214,6 +227,109 @@ export class SessionsService {
     ]);
 
     return { accepted: true as const, nextNonce, seq };
+  }
+
+  async end(sessionId: string, dto: EndSessionDto) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { device: true, snapshots: true, flags: true },
+    });
+    if (!session) {
+      throw new NotFoundException({
+        message: 'Sesión no encontrada',
+        code: 'SESSION_NOT_FOUND',
+      });
+    }
+    if (session.status !== 'ACTIVE') {
+      throw new GoneException({
+        message: 'Sesión ya cerrada',
+        code: 'SESSION_NOT_ACTIVE',
+      });
+    }
+
+    // El device firma (sessionId + clientTimestamp) para cerrar.
+    const challenge = Buffer.from(`${sessionId}${dto.clientTimestamp}`);
+    if (
+      !this.signature.verify(
+        session.device.publicKey,
+        challenge,
+        dto.signatureB64,
+      )
+    ) {
+      throw new UnauthorizedException({
+        message: 'Firma inválida',
+        code: 'DEVICE_AUTH_FAILED',
+      });
+    }
+
+    const endedAt = new Date();
+    const validSnaps = session.snapshots.filter((s) => s.signatureValid);
+    const gap = analyzeGaps({
+      startedAt: session.startedAt.getTime(),
+      endedAt: endedAt.getTime(),
+      snapshotTimestamps: validSnaps
+        .map((s) => s.receivedAt.getTime())
+        .sort((a, b) => a - b),
+      expectedIntervalSec: session.expectedIntervalSec,
+      timeoutMultiplier: this.config.get('SESSION_TIMEOUT_MULTIPLIER', {
+        infer: true,
+      }),
+      minCoverageRatio: this.config.get('SESSION_MIN_COVERAGE_RATIO', {
+        infer: true,
+      }),
+      gapSuspiciousMultiplier: DEFAULT_POLICY.gapSuspiciousMultiplier,
+      gapWarnCoverageRatio: DEFAULT_POLICY.gapWarnCoverageRatio,
+    });
+
+    // Si hay gap medio, agregar un flag SNAPSHOT_GAP a la sesión.
+    if (gap.gapFlag) {
+      await this.prisma.flag.create({
+        data: { sessionId, type: 'SNAPSHOT_GAP', severity: 'MEDIUM' },
+      });
+    }
+
+    // Recolectar flags por snapshot para el veredicto.
+    const allFlags = await this.prisma.flag.findMany({ where: { sessionId } });
+    const toFlag = (f: {
+      type: FlagType;
+      severity: Severity;
+    }): DetectedFlag => ({
+      type: f.type,
+      severity: f.severity,
+    });
+    const snapshotViews = session.snapshots.map((s) => ({
+      flags: allFlags.filter((f) => f.snapshotId === s.id).map(toFlag),
+    }));
+    // Flags a nivel sesión (p.ej. SNAPSHOT_GAP) → como un "snapshot" extra de flags.
+    const sessionLevelFlags = allFlags
+      .filter((f) => f.snapshotId === null)
+      .map(toFlag);
+    const views = [...snapshotViews, { flags: sessionLevelFlags }];
+
+    const verdict = computeVerdict(gap.status, views);
+    await this.prisma.session.update({
+      where: { id: sessionId },
+      data: { status: gap.status, verdict, endedAt },
+    });
+    return { sessionId, status: gap.status, verdict, flags: allFlags };
+  }
+
+  async getVerdict(sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { id: true, status: true, verdict: true },
+    });
+    if (!session) {
+      throw new NotFoundException({
+        message: 'Sesión no encontrada',
+        code: 'SESSION_NOT_FOUND',
+      });
+    }
+    return {
+      sessionId: session.id,
+      status: session.status,
+      verdict: session.verdict,
+    };
   }
 
   // Registra un intento rechazado como evidencia inmutable + flag, sin avanzar el nonce.
