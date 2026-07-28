@@ -13,3 +13,7 @@ if (!process.env.DATABASE_URL) {
 if (!process.env.ADMIN_API_KEY) {
   process.env.ADMIN_API_KEY = 'x'.repeat(32);
 }
+// Rate limit alto en tests: todos los requests salen de la misma IP y no queremos 429 flaky.
+if (!process.env.THROTTLE_LIMIT) {
+  process.env.THROTTLE_LIMIT = '100000';
+}

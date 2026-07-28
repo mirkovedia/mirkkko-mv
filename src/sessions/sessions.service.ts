@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignatureService } from '../common/crypto/signature.service';
@@ -215,7 +216,9 @@ export class SessionsService {
               sessionId: session.id,
               type: f.type,
               severity: f.severity,
-              details: f.details ? { ...f.details } : undefined,
+              details: f.details
+                ? ({ ...f.details } as Prisma.InputJsonValue)
+                : undefined,
             })),
           },
         },
