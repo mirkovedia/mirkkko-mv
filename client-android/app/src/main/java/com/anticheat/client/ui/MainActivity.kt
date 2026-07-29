@@ -10,7 +10,10 @@ import com.anticheat.client.crypto.KeystoreSigningKey
 import com.anticheat.client.net.ApiClient
 import com.anticheat.client.session.*
 import com.anticheat.client.signals.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val SNAPSHOT_INTERVAL_MS = 10_000L
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,7 +31,11 @@ class MainActivity : ComponentActivity() {
         val orch = VerificationOrchestrator(api, key, DataStoreDeviceStore(this), aggregator::collect)
         setContent {
             val state by orch.state.collectAsState()
-            MainScreen(state = state, onVerify = { lifecycleScope.launch { orch.run() } })
+            MainScreen(state = state, onVerify = {
+                // Pacing real en dispositivo: espera el intervalo esperado entre snapshots
+                // para emular una sesion de juego. Los tests usan el no-op por defecto.
+                lifecycleScope.launch { orch.run(betweenSnapshots = { delay(SNAPSHOT_INTERVAL_MS) }) }
+            })
         }
     }
 }

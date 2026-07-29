@@ -19,10 +19,10 @@ class VerificationOrchestrator(
     val state: StateFlow<VerificationState> = _state
     private fun iso() = Instant.ofEpochMilli(clock()).toString()
 
-    suspend fun run() {
+    suspend fun run(betweenSnapshots: suspend (Int) -> Unit = {}) {
         try {
             _state.value = VerificationState.Running("Enrolando dispositivo", 0.1f)
-            val deviceId = store.getDeviceId() ?: run {
+            val deviceId = store.getDeviceId() ?: kotlin.run {
                 val chain = key.attestationChainB64()
                 val att = if (chain.isNotEmpty()) AttestationDto("ANDROID_KEY_ATTESTATION", chain) else null
                 val id = api.enroll(EnrollRequest(publicKey = key.publicKeySpkiB64(), attestation = att)).deviceId
@@ -38,6 +38,7 @@ class VerificationOrchestrator(
                 val body = PayloadBuilder.build(key, payload, integrityToken = null)
                 val res = api.snapshot(start.sessionId, SnapshotRequest(body.payloadB64, body.signatureB64, null))
                 nonce = res.nextNonce
+                betweenSnapshots(seq)
             }
             _state.value = VerificationState.Running("Cerrando sesión", 0.9f)
             val tsEnd = iso()
