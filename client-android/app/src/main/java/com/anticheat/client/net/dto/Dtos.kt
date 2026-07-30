@@ -2,7 +2,7 @@ package com.anticheat.client.net.dto
 import kotlinx.serialization.Serializable
 @Serializable data class AttestationDto(val type: String, val certificateChain: List<String>? = null)
 @Serializable data class EnrollRequest(val publicKey: String, val platform: String = "ANDROID",
-    val keyAlgo: String = "EC_P256", val attestation: AttestationDto? = null)
+    val keyAlgo: String = "ES256", val attestation: AttestationDto? = null)
 @Serializable data class EnrollResponse(val deviceId: String, val createdAt: String)
 @Serializable data class StartRequest(val deviceId: String, val clientTimestamp: String, val signatureB64: String)
 @Serializable data class StartResponse(val sessionId: String, val nonce: String,

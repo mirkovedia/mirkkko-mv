@@ -1,8 +1,28 @@
+import java.security.KeyStore
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+// SHA-256 del certificado de debug de esta maquina (~/.android/debug.keystore).
+// Se calcula en build time para que el pin de la variante debug sea real y la senal
+// apkSignature.mismatch no de un falso positivo en el e2e local. Nunca se hardcodea:
+// cada desarrollador tiene su propio debug.keystore.
+fun debugSigningCertSha256(): String {
+    val keystore = File(System.getProperty("user.home"), ".android/debug.keystore")
+    if (!keystore.exists()) return "DEBUG_KEYSTORE_NOT_FOUND"
+    return runCatching {
+        val store = KeyStore.getInstance("JKS")
+        keystore.inputStream().use { store.load(it, "android".toCharArray()) }
+        val cert = store.getCertificate("androiddebugkey") ?: return "DEBUG_KEY_ALIAS_NOT_FOUND"
+        MessageDigest.getInstance("SHA-256")
+            .digest(cert.encoded)
+            .joinToString("") { "%02x".format(it) }
+    }.getOrElse { "DEBUG_CERT_READ_FAILED" }
 }
 android {
     namespace = "com.anticheat.client"
@@ -18,6 +38,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_BASE_URL", "\"http://10.0.2.2:3000/\"")
         buildConfigField("String", "APK_SIGNING_CERT_SHA256", "\"REPLACE_WITH_RELEASE_CERT_SHA256\"")
+    }
+    buildTypes {
+        debug {
+            // El APK debug se firma con el keystore de debug de la maquina, asi que el pin
+            // debe ser ese certificado. Solo para desarrollo local.
+            buildConfigField(
+                "String",
+                "APK_SIGNING_CERT_SHA256",
+                "\"${debugSigningCertSha256()}\"",
+            )
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
